@@ -1,0 +1,107 @@
+using System.Collections;
+using Telegram.Bot;
+using Telegram.Bot.Exceptions;
+using Telegram.Bot.Polling;
+using Telegram.Bot.Types;
+using Telegram.Bot.Types.Enums;
+
+namespace OnePieceBot
+{
+    public sealed class Bot
+    {
+        // bot usage 
+        public async void NotifyAll(string message)
+        {
+            foreach(ChatId u in users)
+            {
+                try
+                {
+                    await bot.SendTextMessageAsync(u, message);
+                } catch(ApiRequestException e)
+                {
+                    // TODO: remove user from collection
+                    //e.ErrorCode == 
+                }
+            }
+        }
+
+        // bot utility
+        private void SaveUsers()
+        {
+            System.IO.File.WriteAllLines("users.txt", users);
+        }
+
+        private void LoadUsers()
+        {
+            if(File.Exists("users.txt"))
+            var lines = System.IO.File.ReadAllLines("users.txt");
+        }
+
+        // member 
+        private static readonly Bot _instance = new Bot();
+        private TelegramBotClient bot;
+        private CancellationTokenSource cts;
+        private static Mutex mut;
+        private ArrayList<ChatId> users;
+
+        // singleton/initialization 
+        public static Bot Instance { get { return _instance; } }
+
+        private Bot()
+        {
+            bot = new TelegramBotClient("5642757471:AAH3Mi7W3B4DBcQPCTljCOdarZZiWtr7_K4");
+            cts = new CancellationTokenSource();
+            mut = new Mutex();
+        }
+
+        ~Bot() { cts.Cancel(); }
+
+        // run 
+        public void Run()
+        {
+            bot.StartReceiving(
+                updateHandler: HandleUpdateAsync,
+                pollingErrorHandler: HandlePollingErrorAsync,
+                receiverOptions: new ReceiverOptions { AllowedUpdates = Array.Empty<UpdateType>() },
+                cancellationToken: cts.Token
+                );
+        }
+
+        private async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
+        {
+            // Only process Message updates: https://core.telegram.org/bots/api#message
+            if (update.Message is not { } message)
+                return;
+            // Only process text messages
+            if (message.Text is not { } messageText)
+                return;
+
+            var chatId = message.Chat.Id;
+            if(message.Text == "/start")
+            {
+
+            }
+
+            Console.WriteLine($"Received a '{messageText}' message in chat {chatId}.");
+
+            await botClient.SendTextMessageAsync(
+                chatId: chatId,
+                text: "You said:\n" + messageText,
+                cancellationToken: cancellationToken);
+        }
+
+        private Task HandlePollingErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
+        {
+            var ErrorMessage = exception switch
+            {
+                ApiRequestException apiRequestException
+                    => $"Telegram API Error:\n[{apiRequestException.ErrorCode}]\n{apiRequestException.Message}",
+                _ => exception.ToString()
+            };
+
+            Console.WriteLine(ErrorMessage);
+            return Task.CompletedTask;
+        }
+    }
+}
+
